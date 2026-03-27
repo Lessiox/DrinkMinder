@@ -4,11 +4,13 @@ import threading
 from PIL import Image, ImageDraw, ImageFont
 import pystray
 
-WORK_RANGES = [(9, 13), (14, 18),(20, 21)]
+WORK_RANGES = [(9, 13), (14, 18),(20, 23)]
 REMINDER_INTERVAL = 5  # minuti
 LOCK_SECONDS = 10
 tray_icon = None
 next_trigger_label = ""
+
+DEBUG_MODE = True
 
 def is_work_time(now=None):
     if now is None:
@@ -64,7 +66,8 @@ def tick_countdown():
         label.configure(text=f"💧 Bevi un po' d'acqua!\n{remaining - 1}s")
         app.after(1000, tick_countdown)
     else:
-        hide_and_schedule()
+        if not DEBUG_MODE:
+            hide_and_schedule()
 
 def hide_and_schedule():
     """Nasconde la finestra e programma il prossimo reminder."""
@@ -101,7 +104,7 @@ def create_tray_icon_image():
 def update_tray_tooltip():
     """Aggiorna il tooltip della tray icon."""
     if tray_icon:
-        tray_icon.title = f"DrinkMinder — prossimo: {next_trigger_label}"
+        tray_icon.title = f"DrinkMinder — prossimo reminder: {next_trigger_label}"
 
 def quit_app(icon, item):
     """Chiude completamente l'app dalla tray."""
@@ -112,11 +115,11 @@ def start_tray():
     """Avvia la tray icon in un thread separato."""
     global tray_icon
     menu = pystray.Menu(
-        pystray.MenuItem(lambda text: f"Prossimo: {next_trigger_label}", None, enabled=False),
+        pystray.MenuItem(lambda text: f"Prossimo reminder: {next_trigger_label}", None, enabled=False),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("Esci da DrinkMinder", quit_app),
     )
-    tray_icon = pystray.Icon("DrinkMinder", create_tray_icon_image(), f"DrinkMinder — prossimo: {next_trigger_label}", menu)
+    tray_icon = pystray.Icon("DrinkMinder", create_tray_icon_image(), f"DrinkMinder — prossimo reminder: {next_trigger_label}", menu)
     tray_icon.run()
 
 # --- Setup UI ---
@@ -125,7 +128,7 @@ ctk.set_default_color_theme("blue")
 
 app = ctk.CTk()
 app.title("DrinkMinder 💧")
-app.minsize(400, 220)
+app.minsize(400, 500)
 
 countdown_var = ctk.IntVar(value=LOCK_SECONDS)
 
@@ -142,7 +145,7 @@ label.pack(pady=30, padx=20, fill="x")
 
 status_label = ctk.CTkLabel(
     app,
-    text="DrinkMinder attivo — reminder ogni 30 min",
+    text=f"DrinkMinder attivo — reminder ogni {REMINDER_INTERVAL} min",
     font=("Helvetica", 12),
     text_color="gray",
 )
@@ -150,11 +153,14 @@ status_label.pack(pady=(0, 10))
 
 # All'avvio: se siamo in fascia lavorativa e su uno slot, mostra subito
 now = datetime.now()
-if is_work_time(now) and now.minute % REMINDER_INTERVAL < 1:
-    app.after(500, show_reminder)
+if DEBUG_MODE:
+    show_reminder()
 else:
-    app.withdraw()
-    schedule_next()
+    if is_work_time(now) and now.minute % REMINDER_INTERVAL < 1:
+        app.after(500, show_reminder)
+    else:
+        app.withdraw()
+        schedule_next()
 
 # Avvia tray icon in background
 tray_thread = threading.Thread(target=start_tray, daemon=True)
