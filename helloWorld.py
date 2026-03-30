@@ -39,7 +39,6 @@ def load_config():
 TRANSLATIONS = {
     "it": {
         "drink": "\U0001f4a7 Bevi un po' d'acqua! \U0001f4a7",
-        "drink_short": "\U0001f4a7 Bevi un po' d'acqua!",
         "wait": "Attendi {s}s...",
         "ok": "Ok \u2713",
         "status": "DrinkMinder attivo \u2014 reminder ogni {m} min",
@@ -50,7 +49,6 @@ TRANSLATIONS = {
     },
     "en": {
         "drink": "\U0001f4a7 Have a drink of water! \U0001f4a7",
-        "drink_short": "\U0001f4a7 Have a drink of water!",
         "wait": "Wait {s}s...",
         "ok": "Ok \u2713",
         "status": "DrinkMinder active \u2014 reminder every {m} min",
@@ -97,11 +95,6 @@ def next_trigger_time():
             return candidate
         candidate += timedelta(minutes=REMINDER_INTERVAL)
     return None
-
-def ms_until(target):
-    """Milliseconds from now until target."""
-    delta = (target - datetime.now()).total_seconds()
-    return max(int(delta * 1000), 0)
 
 def set_rounded_corners(win):
     """Apply rounded corners on Windows 11 via DWM."""
