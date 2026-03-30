@@ -8,9 +8,9 @@ import ctypes
 from PIL import Image, ImageDraw, ImageFont
 import pystray
 
-# --- Carica configurazione da config.ini ---
+# --- Load configuration from config.ini ---
 def get_config_path():
-    """Restituisce il percorso di config.ini accanto all'exe o allo script."""
+    """Return the path to config.ini next to the exe or script."""
     if getattr(sys, 'frozen', False):
         base = os.path.dirname(sys.executable)
     else:
@@ -32,17 +32,49 @@ def load_config():
         "reminder_interval": int(section.get("reminder_interval", "15")),
         "lock_seconds": int(section.get("lock_seconds", "10")),
         "debug": section.get("debug", "false").strip().lower() == "true",
+        "language": section.get("language", "it").strip().lower(),
     }
+
+# --- Translations ---
+TRANSLATIONS = {
+    "it": {
+        "drink": "\U0001f4a7 Bevi un po' d'acqua! \U0001f4a7",
+        "drink_short": "\U0001f4a7 Bevi un po' d'acqua!",
+        "wait": "Attendi {s}s...",
+        "ok": "Ok \u2713",
+        "status": "DrinkMinder attivo \u2014 reminder ogni {m} min",
+        "tray_next": "Prossimo reminder: {t}",
+        "tray_tooltip": "DrinkMinder \u2014 prossimo reminder: {t}",
+        "tray_quit": "Esci da DrinkMinder",
+        "no_trigger": "nessun trigger",
+    },
+    "en": {
+        "drink": "\U0001f4a7 Have a drink of water! \U0001f4a7",
+        "drink_short": "\U0001f4a7 Have a drink of water!",
+        "wait": "Wait {s}s...",
+        "ok": "Ok \u2713",
+        "status": "DrinkMinder active \u2014 reminder every {m} min",
+        "tray_next": "Next reminder: {t}",
+        "tray_tooltip": "DrinkMinder \u2014 next reminder: {t}",
+        "tray_quit": "Quit DrinkMinder",
+        "no_trigger": "no trigger",
+    },
+}
 
 config = load_config()
 WORK_RANGES = config["work_ranges"]
 REMINDER_INTERVAL = config["reminder_interval"]
 LOCK_SECONDS = config["lock_seconds"]
 DEBUG_MODE = config["debug"]
+LANG = config.get("language", "it")
+STR = TRANSLATIONS.get(LANG, TRANSLATIONS["it"])
+
+def t(key, **kwargs):
+    return STR[key].format(**kwargs) if kwargs else STR[key]
 
 tray_icon = None
 next_trigger_label = ""
-reminder_active = False  # True mentre il reminder è visibile (blocca nuovi trigger)
+reminder_active = False
 
 def is_work_time(now=None):
     if now is None:
@@ -51,14 +83,14 @@ def is_work_time(now=None):
     return any(start <= hour < end for start, end in WORK_RANGES)
 
 def next_trigger_time():
-    """Calcola il prossimo slot allineato a REMINDER_INTERVAL in fascia lavorativa."""
+    """Calculate the next slot aligned to REMINDER_INTERVAL within work hours."""
     now = datetime.now()
-    # Prossimo slot allineato (es. ogni 5 min: :00, :05, :10, ...)
+    # Next aligned slot (e.g. every 5 min: :00, :05, :10, ...)
     minutes_since_midnight = now.hour * 60 + now.minute
     next_slot = (minutes_since_midnight // REMINDER_INTERVAL + 1) * REMINDER_INTERVAL
     candidate = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(minutes=next_slot)
 
-    # Cerca il primo slot in fascia lavorativa (copre 24h intere)
+    # Find the first slot within work hours (covers a full 24h cycle)
     max_iterations = (24 * 60) // REMINDER_INTERVAL + 1
     for _ in range(max_iterations):
         if is_work_time(candidate):
@@ -67,12 +99,12 @@ def next_trigger_time():
     return None
 
 def ms_until(target):
-    """Millisecondi da adesso fino a target."""
+    """Milliseconds from now until target."""
     delta = (target - datetime.now()).total_seconds()
     return max(int(delta * 1000), 0)
 
 def set_rounded_corners(win):
-    """Applica bordi arrotondati su Windows 11 tramite DWM."""
+    """Apply rounded corners on Windows 11 via DWM."""
     try:
         hwnd = ctypes.windll.user32.GetParent(win.winfo_id())
         DWMWA_WINDOW_CORNER_PREFERENCE = 33
@@ -82,7 +114,7 @@ def set_rounded_corners(win):
             ctypes.byref(DWMWCP_ROUND), ctypes.sizeof(DWMWCP_ROUND)
         )
     except Exception:
-        pass  # Non Windows 11, ignora silenziosamente
+        pass  # Not Windows 11, silently ignore
 
 def center_window(win, width, height):
     win.update_idletasks()
@@ -93,15 +125,15 @@ def center_window(win, width, height):
     win.geometry(f"{width}x{height}+{x}+{y}")
 
 def block_close():
-    """Impedisce la chiusura della finestra."""
+    """Prevent window from being closed."""
     pass
 
 def show_reminder():
-    """Mostra la finestra bloccata per LOCK_SECONDS secondi."""
+    """Show the locked reminder window for LOCK_SECONDS seconds."""
     global reminder_active
     reminder_active = True
     countdown_var.set(LOCK_SECONDS)
-    buttonOk.configure(state="disabled", text=f"Attendi {LOCK_SECONDS}s...")
+    buttonOk.configure(state="disabled", text=t("wait", s=LOCK_SECONDS))
     app.deiconify()
     center_window(app, 400, 220)
     app.overrideredirect(True)
@@ -111,17 +143,17 @@ def show_reminder():
     tick_countdown()
 
 def tick_countdown():
-    """Aggiorna il conto alla rovescia ogni secondo."""
+    """Update the countdown every second."""
     remaining = countdown_var.get()
     if remaining > 1:
         countdown_var.set(remaining - 1)
-        buttonOk.configure(text=f"Attendi {remaining - 1}s...")
+        buttonOk.configure(text=t("wait", s=remaining - 1))
         app.after(1000, tick_countdown)
     else:
-        buttonOk.configure(state="normal", text="Ok ✓")
+        buttonOk.configure(state="normal", text=t("ok"))
 
 def hide_and_schedule():
-    """Nasconde la finestra, calcola il prossimo slot e riavvia il polling."""
+    """Hide the window, calculate the next slot and restart polling."""
     global reminder_active
     reminder_active = False
     app.overrideredirect(False)
@@ -132,32 +164,32 @@ def hide_and_schedule():
     start_polling()
 
 def update_next_trigger_label():
-    """Aggiorna il tooltip della tray con il prossimo slot."""
+    """Update the tray tooltip with the next trigger slot."""
     global next_trigger_label
     target = next_trigger_time()
     if target:
         next_trigger_label = target.strftime("%H:%M")
     else:
-        next_trigger_label = "nessun trigger"
+        next_trigger_label = t("no_trigger")
     update_tray_tooltip()
 
 def start_polling():
-    """Avvia il controllo periodico ogni 30 secondi."""
+    """Start periodic trigger check."""
     check_trigger()
 
 def check_trigger():
-    """Controlla periodicamente se è il momento di mostrare un reminder."""
+    """Periodically check if it's time to show a reminder."""
     if reminder_active:
-        return  # Non fare nulla mentre il reminder è visibile
+        return  # Do nothing while a reminder is visible
     now = datetime.now()
     if is_work_time(now) and now.minute % REMINDER_INTERVAL == 0 and now.second < 30:
         show_reminder()
-        return  # Stop polling, ripartirà dopo Ok
-    app.after(10000, check_trigger)  # Ricontrolla fra 10 secondi
+        return  # Stop polling, will restart after Ok
+    app.after(10000, check_trigger)  # Recheck in 10 seconds
 
 # --- System Tray ---
 def create_tray_icon_image():
-    """Genera un'icona 64x64 con l'emoji 💧."""
+    """Generate a 64x64 icon with the 💧 emoji."""
     img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
     try:
@@ -168,24 +200,24 @@ def create_tray_icon_image():
     return img
 
 def update_tray_tooltip():
-    """Aggiorna il tooltip della tray icon."""
+    """Update the tray icon tooltip."""
     if tray_icon:
-        tray_icon.title = f"DrinkMinder — prossimo reminder: {next_trigger_label}"
+        tray_icon.title = t("tray_tooltip", t=next_trigger_label)
 
 def quit_app(icon, item):
-    """Chiude completamente l'app dalla tray."""
+    """Fully quit the app from the tray."""
     icon.stop()
     app.after(0, app.destroy)
 
 def start_tray():
-    """Avvia la tray icon in un thread separato."""
+    """Start the tray icon in a separate thread."""
     global tray_icon
     menu = pystray.Menu(
-        pystray.MenuItem(lambda text: f"Prossimo reminder: {next_trigger_label}", None, enabled=False),
+        pystray.MenuItem(lambda text: t("tray_next", t=next_trigger_label), None, enabled=False),
         pystray.Menu.SEPARATOR,
-        pystray.MenuItem("Esci da DrinkMinder", quit_app),
+        pystray.MenuItem(t("tray_quit"), quit_app),
     )
-    tray_icon = pystray.Icon("DrinkMinder", create_tray_icon_image(), f"DrinkMinder — prossimo reminder: {next_trigger_label}", menu)
+    tray_icon = pystray.Icon("DrinkMinder", create_tray_icon_image(), t("tray_tooltip", t=next_trigger_label), menu)
     tray_icon.run()
 
 # --- Setup UI ---
@@ -202,7 +234,7 @@ countdown_var = ctk.IntVar(value=LOCK_SECONDS)
 
 label = ctk.CTkLabel(
     app,
-    text="💧 Bevi un po' d'acqua! 💧",
+    text=t("drink"),
     font=("Helvetica", 24),
     corner_radius=20,
     fg_color="#1E90FF",
@@ -214,16 +246,16 @@ label.pack(pady=30, padx=20, fill="x")
 
 status_label = ctk.CTkLabel(
     app,
-    text=f"DrinkMinder attivo — reminder ogni {REMINDER_INTERVAL} min",
+    text=t("status", m=REMINDER_INTERVAL),
     font=("Helvetica", 12),
     text_color="gray",
 )
 status_label.pack(pady=(0, 10))
 
-buttonOk = ctk.CTkButton(app, text="Attendi...", command=hide_and_schedule, state="disabled", fg_color="#1E90FF", hover_color="#22658B", font=("Helvetica", 14))
+buttonOk = ctk.CTkButton(app, text=t("wait", s="..."), command=hide_and_schedule, state="disabled", fg_color="#1E90FF", hover_color="#22658B", font=("Helvetica", 14))
 buttonOk.pack(pady=20, padx=20, fill="x")
 
-# All'avvio: se siamo in fascia lavorativa e su uno slot, mostra subito
+# On startup: if in work hours and on a slot, show immediately
 now = datetime.now()
 if DEBUG_MODE:
     show_reminder()
@@ -232,7 +264,7 @@ else:
     update_next_trigger_label()
     start_polling()
 
-# Avvia tray icon in background
+# Start tray icon in background
 tray_thread = threading.Thread(target=start_tray, daemon=True)
 tray_thread.start()
 
