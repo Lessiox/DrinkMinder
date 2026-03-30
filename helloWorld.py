@@ -226,7 +226,7 @@ ctk.set_default_color_theme("blue")
 
 app = ctk.CTk()
 app.title("DrinkMinder 💧")
-app.minsize(400, 500)
+app.minsize(300, 200)
 app.update_idletasks()
 set_rounded_corners(app)
 
@@ -242,7 +242,7 @@ label = ctk.CTkLabel(
     wraplength=350,
     height=100,
 )
-label.pack(pady=30, padx=20, fill="x")
+label.pack(pady=10, padx=10, fill="x")
 
 status_label = ctk.CTkLabel(
     app,
@@ -250,10 +250,10 @@ status_label = ctk.CTkLabel(
     font=("Helvetica", 12),
     text_color="gray",
 )
-status_label.pack(pady=(0, 10))
+status_label.pack(pady=(0, 0))
 
 buttonOk = ctk.CTkButton(app, text=t("wait", s="..."), command=hide_and_schedule, state="disabled", fg_color="#1E90FF", hover_color="#22658B", font=("Helvetica", 14))
-buttonOk.pack(pady=20, padx=20, fill="x")
+buttonOk.pack(pady=20, padx=10, fill="x")
 
 # On startup: if in work hours and on a slot, show immediately
 now = datetime.now()
