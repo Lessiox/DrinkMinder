@@ -43,17 +43,17 @@ You can also change all settings from the ⚙ button in the app or the tray menu
 
 ```bash
 pip install customtkinter pystray Pillow
-python helloWorld.py
+python DrinkMinder.py
 ```
 
 ### Build standalone executable
 
 ```bash
 pip install pyinstaller
-pyinstaller --onefile --noconsole --noconfirm --icon=drinkminder_icon.ico --add-data "drinkminder_icon.ico;." helloWorld.py
+pyinstaller --onefile --noconsole --noconfirm --name DrinkMinder --icon=drinkminder_icon.ico --add-data "drinkminder_icon.ico;." DrinkMinder.py
 ```
 
-The executable will be in `dist/helloWorld.exe`. Place `config.ini` next to it (or let the app create a default one on first run).
+The executable will be in `dist/DrinkMinder.exe`. Place `config.ini` next to it (or let the app create a default one on first run).
 
 ## Requirements
 
