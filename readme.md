@@ -14,6 +14,12 @@ A lightweight Windows desktop app that reminds you to drink water during work ho
 - **Portable config** — reads/writes a `config.ini` file next to the executable; auto-creates defaults on first run
 - **Rounded corners** — native Windows 11 rounded window corners via DWM API
 
+## Screenshot
+<img width="400" height="250" alt="image" src="https://github.com/user-attachments/assets/83f75785-56d4-4b51-a932-589d6e02ff72" />
+
+<img width="322" height="408" alt="image" src="https://github.com/user-attachments/assets/68423e30-a623-4a63-934c-4b1e7b17a9e8" />
+
+
 ## Configuration
 
 All settings are stored in `config.ini` (auto-created on first run):
