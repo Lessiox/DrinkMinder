@@ -8,6 +8,19 @@ import ctypes
 from PIL import Image, ImageDraw, ImageFont
 import pystray
 
+def get_icon_path():
+    """Return the path to the icon file (bundled or alongside exe/script)."""
+    # PyInstaller --onefile extracts add-data files to sys._MEIPASS
+    if getattr(sys, '_MEIPASS', None):
+        path = os.path.join(sys._MEIPASS, "drinkminder_icon.ico")
+        if os.path.exists(path):
+            return path
+    if getattr(sys, 'frozen', False):
+        base = os.path.dirname(sys.executable)
+    else:
+        base = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base, "drinkminder_icon.ico")
+
 # --- Load configuration from config.ini ---
 def get_config_path():
     """Return the path to config.ini next to the exe or script."""
@@ -70,6 +83,7 @@ TRANSLATIONS = {
         "settings_debug": "Modalit\u00e0 debug",
         "settings_save": "Salva",
         "settings_saved": "Salvato \u2713",
+        "tray_settings": "Impostazioni",
     },
     "en": {
         "drink": "\U0001f4a7 Have a drink of water! \U0001f4a7",
@@ -88,6 +102,7 @@ TRANSLATIONS = {
         "settings_debug": "Debug mode",
         "settings_save": "Save",
         "settings_saved": "Saved \u2713",
+        "tray_settings": "Settings",
     },
 }
 
@@ -248,7 +263,10 @@ def check_trigger():
 
 # --- System Tray ---
 def create_tray_icon_image():
-    """Generate a 64x64 icon with the 💧 emoji."""
+    """Load the tray icon from .ico file, or generate a fallback."""
+    icon_path = get_icon_path()
+    if os.path.exists(icon_path):
+        return Image.open(icon_path).resize((64, 64))
     img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
     try:
@@ -273,6 +291,7 @@ def start_tray():
     global tray_icon
     menu = pystray.Menu(
         pystray.MenuItem(lambda text: t("tray_next", t=next_trigger_label), None, enabled=False),
+        pystray.MenuItem(t("tray_settings"), open_settings),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem(t("tray_quit"), quit_app),
     )
@@ -286,6 +305,12 @@ ctk.set_default_color_theme("blue")
 app = ctk.CTk()
 app.title("DrinkMinder 💧")
 app.minsize(300, 250)
+
+# Set window icon
+_icon_path = get_icon_path()
+if os.path.exists(_icon_path):
+    app.iconbitmap(_icon_path)
+
 app.update_idletasks()
 set_rounded_corners(app)
 
