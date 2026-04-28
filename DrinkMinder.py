@@ -84,6 +84,9 @@ TRANSLATIONS = {
         "settings_save": "Salva",
         "settings_saved": "Salvato \u2713",
         "tray_settings": "Impostazioni",
+        "tray_snooze_1h": "Pausa 1 ora",
+        "tray_snooze_2h": "Pausa 2 ore",
+        "tray_snooze_active": "In pausa fino alle {t}",
     },
     "en": {
         "drink": "\U0001f4a7 Have a drink of water! \U0001f4a7",
@@ -103,6 +106,9 @@ TRANSLATIONS = {
         "settings_save": "Save",
         "settings_saved": "Saved \u2713",
         "tray_settings": "Settings",
+        "tray_snooze_1h": "Snooze 1 hour",
+        "tray_snooze_2h": "Snooze 2 hours",
+        "tray_snooze_active": "Snoozed until {t}",
     },
 }
 
@@ -150,6 +156,23 @@ tray_icon = None
 next_trigger_label = ""
 reminder_active = False
 last_triggered_slot = None  # (hour, minute) of the last triggered reminder
+snooze_until = None  # datetime until which reminders are paused
+
+def snooze(hours):
+    """Pause reminders for the given number of hours."""
+    global snooze_until
+    snooze_until = datetime.now() + timedelta(hours=hours)
+    update_next_trigger_label()
+
+def is_snoozed():
+    """Return True if snooze is currently active."""
+    global snooze_until
+    if snooze_until is None:
+        return False
+    if datetime.now() >= snooze_until:
+        snooze_until = None
+        return False
+    return True
 
 def is_work_time(now=None):
     if now is None:
@@ -236,11 +259,14 @@ def hide_and_schedule():
 def update_next_trigger_label():
     """Update the tray tooltip with the next trigger slot."""
     global next_trigger_label
-    target = next_trigger_time()
-    if target:
-        next_trigger_label = target.strftime("%H:%M")
+    if is_snoozed():
+        next_trigger_label = t("tray_snooze_active", t=snooze_until.strftime("%H:%M"))
     else:
-        next_trigger_label = t("no_trigger")
+        target = next_trigger_time()
+        if target:
+            next_trigger_label = target.strftime("%H:%M")
+        else:
+            next_trigger_label = t("no_trigger")
     update_tray_tooltip()
 
 def start_polling():
@@ -253,6 +279,9 @@ def check_trigger():
     if reminder_active:
         return  # Do nothing while a reminder is visible
     update_next_trigger_label()
+    if is_snoozed():
+        app.after(10000, check_trigger)
+        return
     now = datetime.now()
     current_slot = (now.hour, now.minute)
     if is_work_time(now) and now.minute % REMINDER_INTERVAL == 0 and current_slot != last_triggered_slot:
@@ -292,6 +321,9 @@ def start_tray():
     menu = pystray.Menu(
         pystray.MenuItem(lambda text: t("tray_next", t=next_trigger_label), None, enabled=False),
         pystray.MenuItem(t("tray_settings"), open_settings),
+        pystray.Menu.SEPARATOR,
+        pystray.MenuItem(t("tray_snooze_1h"), lambda icon, item: snooze(1)),
+        pystray.MenuItem(t("tray_snooze_2h"), lambda icon, item: snooze(2)),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem(t("tray_quit"), quit_app),
     )
